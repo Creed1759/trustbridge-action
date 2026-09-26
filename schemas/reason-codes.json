@@ -96,13 +96,23 @@
       "since": "v1"
     },
     {
-      "code": "MILESTONE_GATE_SKIPPED",
-      "description": "The milestone gate skipped validation because the issue's milestone was not in the allowlist. No account checks were performed.",
-      "accountFunded": false,
-      "trustlineExists": false,
-      "xlmReserveMet": false,
+      "code": "TRUSTLINE_UNAUTHORIZED",
+      "description": "Trustline exists but is not authorized by the issuer.",
+      "accountFunded": true,
+      "trustlineExists": true,
+      "xlmReserveMet": true,
       "valid": false,
-      "emittedBy": "src/index.ts (milestone gate logic)",
+      "emittedBy": "src/checks.ts",
+      "since": "v1"
+    },
+    {
+      "code": "MAINTAINER_SKIPPED",
+      "description": "Validation checks skipped because the actor is a maintainer (`skip_for_maintainers: true`).",
+      "accountFunded": true,
+      "trustlineExists": true,
+      "xlmReserveMet": true,
+      "valid": true,
+      "emittedBy": "src/index.ts",
       "since": "v1"
     }
   ]
