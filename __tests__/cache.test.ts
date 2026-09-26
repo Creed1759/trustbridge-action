@@ -1,8 +1,12 @@
 import { SimpleCache } from '../src/cache';
+import * as core from '@actions/core';
+
+jest.mock('@actions/core');
 
 describe('SimpleCache', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -83,5 +87,62 @@ describe('SimpleCache', () => {
 
     expect(cache.get('short')).toBeNull();
     expect(cache.get('long')).toBe('expires-later');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #462 — Warn when cache backend selection is ignored
+// ---------------------------------------------------------------------------
+
+describe('SimpleCache — unsupported backend warning (Issue #462)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('emits a core.warning when an unsupported selectedBackend is provided', () => {
+    const warnSpy = core.warning as jest.MockedFunction<typeof core.warning>;
+    new SimpleCache({ selectedBackend: 'redis' });
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const [message] = warnSpy.mock.calls[0];
+    expect(String(message)).toContain('unsupported backend "redis"');
+    expect(String(message)).toContain('Falling back to in-memory cache');
+  });
+
+  it('warning message lists the supported backend names', () => {
+    const warnSpy = core.warning as jest.MockedFunction<typeof core.warning>;
+    new SimpleCache({ selectedBackend: 'dynamodb' });
+    const [message] = warnSpy.mock.calls[0];
+    expect(String(message)).toContain('"memory"');
+    expect(String(message)).toContain('"github-actions"');
+  });
+
+  it('does NOT emit a warning for the supported "memory" backend', () => {
+    const warnSpy = core.warning as jest.MockedFunction<typeof core.warning>;
+    new SimpleCache({ selectedBackend: 'memory' });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('does NOT emit a warning for the supported "github-actions" backend', () => {
+    const warnSpy = core.warning as jest.MockedFunction<typeof core.warning>;
+    new SimpleCache({ selectedBackend: 'github-actions' });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('does NOT emit a warning when selectedBackend is not provided', () => {
+    const warnSpy = core.warning as jest.MockedFunction<typeof core.warning>;
+    new SimpleCache({});
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('does NOT emit a warning when selectedBackend is an empty string', () => {
+    const warnSpy = core.warning as jest.MockedFunction<typeof core.warning>;
+    new SimpleCache({ selectedBackend: '' });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('cache still operates normally (in-memory fallback) after an unsupported backend warning', () => {
+    const cache = new SimpleCache({ selectedBackend: 'redis' });
+    cache.set('k', 'v', 60_000);
+    expect(cache.get('k')).toBe('v');
   });
 });
