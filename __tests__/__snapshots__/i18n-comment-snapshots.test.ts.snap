@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`i18n comment golden snapshots (issue #291) locale: en success path renders correctly for locale "en" 1`] = `
 "<!-- trustbridge-action:sticky-comment:schema-v1.1.0 -->

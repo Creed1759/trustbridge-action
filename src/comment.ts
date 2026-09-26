@@ -20,6 +20,8 @@ import {
   buildFaqLinkForCheck,
 } from './links';
 import { buildOnboardingChecklist, extractChecklistState, inlineCode } from './markdown';
+import { buildTemplateContext, loadCommentTemplate } from './template';
+import { getOctokitProxyOptions } from './proxy';
 import { MetricsCollector } from './metrics';
 import {
   formatSnoozeMarker,
@@ -120,6 +122,7 @@ export interface CommentConfig extends CheckConfig {
    * Leave unset or empty to disable the feature entirely.
    */
   customCommentTemplatePath?: string;
+  existingCommentBody?: string;
 }
 
 export const TRUSTBRIDGE_FOOTER =
@@ -226,6 +229,18 @@ export function formatCommentBody(
       );
     }
 
+    if (result.networkPassphraseMismatch) {
+      const mismatch = result.networkPassphraseMismatch;
+      lines.push(
+        '',
+        '🚨 **Network passphrase mismatch detected**',
+        `- **Expected:** ${inlineCode(mismatch.expectedPassphrase)}`,
+        `- **Horizon reports:** ${inlineCode(mismatch.actualPassphrase)}`,
+        `- ${mismatch.message}`,
+        '- This is a configuration error and can cause account lookups to return 404 errors.',
+      );
+    }
+
     const deltaSection = formatDeltaMarkdown(config.delta);
     if (deltaSection) {
       lines.push("", deltaSection);
@@ -268,6 +283,7 @@ export function formatCommentBody(
         `- [${strings.sendXlmToActivate.replace("{amount}", String(STELLAR_MIN_ACCOUNT_BALANCE_XLM))}](${payLink})`,
       );
     }
+  }
 
   // Custom comment template partial (#312) — injected just before the footer.
   // Path validation, size check, content security, and interpolation escaping

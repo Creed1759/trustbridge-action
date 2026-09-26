@@ -13,6 +13,8 @@ export interface ActionOutputExtras {
     assetIssuer?: string;
     timings?: ActionTimings;
     validatedAt?: string;
+    assigneeLogin?: string;
+    stellarAddress?: string;
     /**
      * #319 — Conflict report to embed in outputs. When present,
      * `conflict_report` and `has_conflicts` outputs are set accordingly.
@@ -107,6 +109,11 @@ export interface ActionOutputs {
      * Allows downstream steps to gate on `steps.trustbridge.outputs.has_conflicts == 'true'`.
      */
     has_conflicts: string;
+    network_passphrase_mismatch: string;
+    expected_network_passphrase: string;
+    actual_network_passphrase: string;
+    assignee_results_json: string;
+    matrix_ready_map: string;
 }
 export declare function toActionOutputs(result: ValidationResult, commentUrl?: string, fullReportPath?: string, extras?: ActionOutputExtras): ActionOutputs;
 export declare function setValidationOutputs(result: ValidationResult, commentUrl?: string, fullReportPath?: string, extras?: ActionOutputExtras): void;
@@ -126,3 +133,58 @@ export interface WriteValidationJsonOptions {
  * cross-run delta comparison. Never includes `github_token` or auth headers.
  */
 export declare function writeValidationJson(options: WriteValidationJsonOptions): ValidationArtifact;
+export interface AssigneeResult {
+    ready: boolean;
+    stellar_address: string;
+    xlm_balance: string;
+    account_funded: boolean;
+    trustline_exists: boolean;
+    reason_code: string;
+    validated_at: string;
+}
+export type AssigneeResultsMap = Record<string, AssigneeResult>;
+export type MatrixReadyMap = Record<string, boolean>;
+/**
+ * Build matrix-friendly JSON outputs from multiple validation results.
+ * This enables GitHub matrix workflows to access per-assignee results via
+ * `fromJSON(steps.trustbridge.outputs.matrix_ready_map)`.
+ *
+ * Example usage in a matrix workflow:
+ * ```yaml
+ * strategy:
+ *   matrix:
+ *     assignee: [alice, bob, charlie]
+ * steps:
+ *   - id: check
+ *     run: |
+ *       READY=$(echo '${{ steps.trustbridge.outputs.matrix_ready_map }}' | jq -r '.["${{ matrix.assignee }}"]')
+ *       echo "ready=$READY" >> $GITHUB_OUTPUT
+ * ```
+ *
+ * @param results Array of validation results with assignee metadata
+ * @returns JSON string maps for assignee_results_json and matrix_ready_map
+ */
+export declare function buildMatrixOutputs(results: Array<{
+    assigneeLogin: string;
+    stellarAddress: string;
+    validationResult: ValidationResult;
+    validatedAt?: string;
+}>): {
+    assigneeResultsJson: string;
+    matrixReadyMap: string;
+};
+/**
+ * Sanitize a GitHub username for use as a matrix dimension or output key.
+ * Replaces characters that could cause issues in GitHub Actions expressions
+ * with safe alternatives.
+ *
+ * Rules:
+ * - Hyphens and underscores preserved
+ * - Other special characters replaced with underscore
+ * - Leading digits prefixed with underscore
+ * - Empty string becomes "unknown"
+ *
+ * @param username GitHub username (e.g., from assignee.login)
+ * @returns Sanitized key safe for GitHub Actions output names
+ */
+export declare function sanitizeUsernameForMatrix(username: string): string;

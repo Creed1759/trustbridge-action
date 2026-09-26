@@ -20,6 +20,14 @@ The account exists but its native XLM balance is below `min_xlm_reserve`. Send a
 
 Retry later or switch `horizon_url` to a trusted endpoint for the target network.
 
+## Horizon retry wait budget exhausted
+
+For `429`, `502`, `503`, and `504` responses, TrustBridge honors `Retry-After`
+when present and stops once the configured total retry wait is exhausted. This
+does not mean the account is unfunded: Horizon did not return a usable account
+response. Retry later, use a healthy same-network fallback, or increase the
+retry total-wait setting for a slow private mirror.
+
 ## Comment posting fails with 404 on GitHub Enterprise Server (GHES)
 
 TrustBridge builds its Octokit client from `context.apiUrl` (backed by the runner's `GITHUB_API_URL`), so it should target your GHES instance automatically. A 404 or "resource not accessible" error usually means either the runner isn't actually GHES-registered (so `GITHUB_API_URL` never got set) or the token lacks `issues: write`. See [docs/USAGE.md — GitHub Enterprise Server (GHES) support](USAGE.md#github-enterprise-server-ghes-support) for the full verification checklist.

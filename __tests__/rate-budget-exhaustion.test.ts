@@ -26,7 +26,7 @@ import {
   FetchLike,
 } from '../src/horizon';
 import { RateBudgetTracker, RateBudgetExhaustedError } from '../src/resilience';
-import { rateBudgetExhaustedResult } from '../src/checks';
+import { horizonFailureResult, rateBudgetExhaustedResult } from '../src/checks';
 
 const PRIMARY_HORIZON = 'https://horizon.stellar.org';
 const TEST_ADDRESS = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
@@ -369,6 +369,16 @@ describe('rateBudgetExhaustedResult', () => {
     minXlmReserve: 1.5,
     horizonUrl: PRIMARY_HORIZON,
   };
+
+  it('uses a distinct reason and detail for Horizon max-total-wait exhaustion', () => {
+    const result = horizonFailureResult(
+      'Horizon retry wait budget exhausted (total wait 80000ms exceeds cap of 70000ms).',
+      baseConfig,
+    );
+    expect(result.reasonCode).toBe('HORIZON_WAIT_BUDGET_EXHAUSTED');
+    expect(result.checks[0].detail).toMatch(/retry wait budget exhausted/i);
+    expect(result.remediation).toMatch(/retry wait budget exhausted/i);
+  });
 
   it('returns valid=false', () => {
     const result = rateBudgetExhaustedResult('Rate budget exhausted.', baseConfig);

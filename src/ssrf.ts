@@ -176,7 +176,7 @@ export async function fetchSSRFSafe(
   while (true) {
     const validation = validateSSRFSafeUrl(currentUrl);
     if (!validation.valid) {
-      return { ok: false, error: validation.errors.join('; ') };
+      return { ok: false, error: 'errors' in validation ? validation.errors.join('; ') : 'Unsafe URL' };
     }
 
     try {
@@ -218,7 +218,7 @@ export async function fetchSSRFSafe(
         if (!hopValidation.valid) {
           return {
             ok: false,
-            error: `Unsafe redirect target: ${hopValidation.errors.join('; ')}`,
+            error: `Unsafe redirect target: ${'errors' in hopValidation ? hopValidation.errors.join('; ') : 'Unsafe URL'}`,
             status: response.status,
           };
         }

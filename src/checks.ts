@@ -23,7 +23,7 @@ import { globalMetrics } from './metrics';
 import { getStrings } from './i18n';
 import { UnauthorizedTrustlinePolicy } from './inputs';
 import { fetchTomlWithCache } from './toml';
-import { validateHorizonUrl } from './validation';
+import { validateContractAddress, validateHorizonUrl } from './validation';
 
 /** Stellar public network base reserve per ledger entry (XLM). */
 export const STELLAR_BASE_RESERVE_XLM = 0.5;
@@ -72,6 +72,7 @@ export interface CheckConfig {
   /** Optional minimum balance for the configured asset (Issue #112). */
   minAssetBalance?: string | number;
   horizonUrl?: string;
+  stellarTomlFetchEnabled?: boolean;
   /** How to treat a trustline that exists but is not yet authorized by the issuer. Default: "warn". */
   unauthorizedTrustlinePolicy?: UnauthorizedTrustlinePolicy;
   /** When true, a clawback-enabled trustline fails the check instead of only warning. Default: false. */
@@ -292,6 +293,7 @@ export interface ValidationResult {
   remediation?: string;
   /** Machine-readable failure reason for gating / metrics. */
   reasonCode?: string;
+  networkPassphraseMismatch?: NetworkPassphraseMismatch;
   /** Precomputed failed check labels (stable snake_case codes). */
   failedCheckLabels?: string[];
   /** CAP-0033 sponsorship counts from the Horizon account snapshot. */
@@ -315,6 +317,37 @@ export interface ValidationResult {
    */
   claimableBalanceCount?: number;
   hasClaimableBalances?: boolean;
+}
+
+export interface NetworkPassphraseMismatch {
+  expectedPassphrase: string;
+  actualPassphrase: string;
+  message: string;
+}
+
+export async function detectPassphraseMismatch(
+  horizonUrl: string,
+  configuredPassphrase: string,
+  fetchPassphrase: () => Promise<string>,
+): Promise<NetworkPassphraseMismatch | undefined> {
+  const expected = configuredPassphrase.trim() ||
+    (inferStellarNetwork(horizonUrl) === 'testnet'
+      ? 'Test SDF Network ; September 2015'
+      : 'Public Global Stellar Network ; September 2015');
+  try {
+    const actual = (await fetchPassphrase()).trim();
+    if (actual === expected) return undefined;
+    const expectedNetwork = expected.toLowerCase().includes('test') ? 'testnet' : 'public';
+    const actualNetwork = actual.toLowerCase().includes('test') ? 'testnet' : 'public';
+    const display = (value: string): string => value.length > 160 ? `${value.slice(0, 157)}...` : value;
+    return {
+      expectedPassphrase: configuredPassphrase.trim() || expected,
+      actualPassphrase: actual,
+      message: `Network passphrase mismatch: configured ${expectedNetwork} (${display(expected)}) but Horizon reports ${actualNetwork} (${display(actual)}). This can cause account lookups to return 404 errors; make sure horizon_url and network_passphrase match.`,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -442,11 +475,12 @@ export function evaluateHomeDomain(
  * - `blocksValid`     â€” true when `ledgerFreshnessFailOnStale=true` AND status='stale'
  */
 export interface LedgerFreshnessCheckResult {
+  fresh?: boolean;
   status: "ok" | "stale" | "unknown";
   lagSeconds: number | null;
   latestLedger: number | null;
   message: string;
-  blocksValid: boolean;
+  blocksValid?: boolean;
 }
 
 const STELLAR_ADDRESS_REGEX = /^G[A-Z2-7]{55}$/;
@@ -954,19 +988,14 @@ export function runAccountChecks(
         mode: config.homeDomainCheckMode ?? "warn",
       });
 
-  if (!valid) {
-    const network = inferStellarNetwork(config.horizonUrl ?? '');
-    const steps: string[] = [];
-    if (authorizationBlocks) {
-      steps.push(
-        `Ask the asset issuer (${inlineCode(config.assetIssuer)}) to authorize this trustline for ${inlineCode(account.account_id)}. The issuer has AUTHORIZATION_REQUIRED enabled, so a Change Trust operation alone is not enough â€” the issuer must submit a SetTrustLineFlags (or legacy AllowTrust) operation.`,
-      );
-    } else if (!trustlineExists) {
-      steps.push(
-        `Add a **${safeAssetCode}** trustline using [Stellar Laboratory](${buildChangeTrustLink(network)}) (Change Trust operation) or a wallet such as [LOBSTR](${buildLobstrLink()}).`,
-      );
+      const homeDomainPassed =
+        !homeDomainCheck.blocksValid || homeDomainCheck.outcome === "valid";
+      checks.push({
+        passed: homeDomainPassed,
+        label: "SEP-0001 home domain",
+        detail: homeDomainCheck.detail,
+      });
     }
-
     const valid = checks.every((c) => c.passed);
     let remediation: string | undefined;
 
@@ -1060,59 +1089,9 @@ export function runAccountChecks(
     };
   };
 
-  // Claimable-balance-aware funded definition (Issue #260)
-  // Default 'ignore' means claimables do not affect funded/valid.
-  // When policy is 'count', we surface an informational note if claimables exist.
-  const claimableBalancePolicy = config.claimableBalancePolicy ?? 'ignore';
-  const claimableBalanceCount = countClaimableBalances(account);
-  const hasClaimables = claimableBalanceCount > 0;
-  if (claimableBalancePolicy === 'count' && hasClaimables) {
-    checks.push({
-      passed: true,
-      label: 'Claimable balances',
-      detail: `Account has **${claimableBalanceCount} claimable balance(s)** â€” these are not counted toward \`account_funded\` but can be claimed via Horizon claimable_balances endpoint.`,
-    });
-    globalMetrics.incrementCounter('claimable_balances_found');
-    globalMetrics.recordMetric('claimable_balances_count', claimableBalanceCount, 'count', {
-      policy: 'count',
-    });
-  }
+  return buildResult();
 
-  return {
-    valid,
-    accountFunded: true,
-    trustlineExists,
-    trustlineAuthorized,
-    clawbackEnabled: trustlineExistsRaw ? clawbackEnabled : undefined,
-    xlmBalance,
-    xlmReserveMet,
-    assetBalance: assetBalanceRaw,
-    assetBalanceMet,
-    trustlineLimit,
-    checks,
-    remediation,
-    claimableBalanceCount,
-    hasClaimableBalances: hasClaimables,
-    reasonCode: (() => {
-      if (valid) return 'SUCCESS';
-      if (!trustlineExistsRaw) return 'TRUSTLINE_MISSING';
-      if (authorizationBlocks) return 'TRUSTLINE_UNAUTHORIZED';
-      if (clawbackBlocks) return 'CLAWBACK_BLOCKED';
-      if (!trustlineExists) return 'TRUSTLINE_MISSING';
-      if (isUnauthorized) return 'TRUSTLINE_UNAUTHORIZED'; // Issue #248
-      if (!xlmReserveMet) return 'RESERVE_TOO_LOW';
-      if (config.minTrustlineLimit && !trustlineLimitMet) return 'TRUSTLINE_LIMIT_TOO_LOW';
-      if (assetBalanceCheckEnabled && !assetBalanceMet) return 'ASSET_BALANCE_TOO_LOW';
-      if (homeDomainCheck?.blocksValid) return 'HOME_DOMAIN_INVALID';
-      return 'FAILED';
-    })(),
-    failedCheckLabels: toFailedCheckCodes(checks),
-    reserveRequirement,
-    homeDomainCheck,
-    sponsorshipInfo,
-  };
 }
-
 export function unfundedAccountResult(
   stellarAddress: string,
   config: CheckConfig,
@@ -1315,23 +1294,34 @@ export function horizonFailureResult(
     sanitizeErrorMessageForComment(message),
   );
   const safeAssetCode = escapeMarkdownInline(config.assetCode);
+  const waitBudgetExhausted = /retry wait budget exhausted|total wait .* cap/i.test(message);
+  const failureDetail = waitBudgetExhausted
+    ? `Horizon retry wait budget exhausted: ${safeMessage}`
+    : safeMessage;
+  const failureRemediation = waitBudgetExhausted
+    ? "Horizon retry wait budget exhausted before a successful response. Retry the workflow later or increase the configured retry wait budget."
+    : "Horizon could not be reached. Retry later or verify your `horizon_url` input and network connectivity.";
   const assetBalanceCheckEnabled = Number(config.minAssetBalance ?? 0) > 0;
 
   const checks: CheckResultItem[] = [
     {
       passed: false,
       label: "Horizon availability",
-      detail: safeMessage,
+      detail: failureDetail,
     },
     {
       passed: false,
       label: `${safeAssetCode} trustline`,
-      detail: "Check could not be completed.",
+      detail: waitBudgetExhausted
+        ? "Check could not be completed because the Horizon retry wait budget was exhausted."
+        : "Check could not be completed.",
     },
     {
       passed: false,
       label: "XLM reserve",
-      detail: "Check could not be completed.",
+      detail: waitBudgetExhausted
+        ? "Check could not be completed because the Horizon retry wait budget was exhausted."
+        : "Check could not be completed.",
     },
   ];
 
@@ -1339,7 +1329,9 @@ export function horizonFailureResult(
     checks.push({
       passed: false,
       label: `${safeAssetCode} minimum balance`,
-      detail: "Check could not be completed.",
+      detail: waitBudgetExhausted
+        ? "Check could not be completed because the Horizon retry wait budget was exhausted."
+        : "Check could not be completed.",
     });
   }
 
@@ -1358,9 +1350,9 @@ export function horizonFailureResult(
 
   return {
     valid: false,
-    reasonCode:
-      message.toLowerCase().includes("timed out") ||
-      message.toLowerCase().includes("timeout")
+    reasonCode: waitBudgetExhausted
+      ? "HORIZON_WAIT_BUDGET_EXHAUSTED"
+      : message.toLowerCase().includes("timed out") || message.toLowerCase().includes("timeout")
         ? "HORIZON_TIMEOUT"
         : "HORIZON_ERROR",
     accountFunded: false,
@@ -1370,8 +1362,7 @@ export function horizonFailureResult(
     assetBalance: "unknown",
     assetBalanceMet: false,
     checks,
-    remediation:
-      "Horizon could not be reached. Retry later or verify your `horizon_url` input and network connectivity.",
+    remediation: failureRemediation,
     failedCheckLabels: toFailedCheckCodes(checks),
     sponsorshipInfo: { numSponsoring: 0, numSponsored: 0 },
     homeDomainCheck: config.homeDomainCheckEnabled
@@ -1844,6 +1835,7 @@ export function generateValidationReport(
     sponsored: checkAccountSponsored(account),
     timestamp: new Date().toISOString(),
   };
+
 }
 
 export interface AssetBalanceRequirement {

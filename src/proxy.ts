@@ -107,7 +107,7 @@ export function shouldBypassProxy(hostname: string, noProxyHosts: string[]): boo
 export function createProxyAgent(
   targetUrl: string,
   config?: ProxyConfig,
-): HttpsProxyAgent<string> | undefined {
+): HttpsProxyAgent | undefined {
   const cfg = config ?? getProxyConfig();
   if (!cfg.proxyUrl) return undefined;
 
@@ -185,7 +185,7 @@ export function createProxiedFetch(config?: ProxyConfig) {
  */
 export function getOctokitProxyOptions(
   baseUrl?: string,
-): { baseUrl?: string; request?: { agent?: HttpsProxyAgent<string> } } {
+): { baseUrl?: string; request?: { agent?: HttpsProxyAgent } } {
   const cfg = getProxyConfig();
   if (!cfg.proxyUrl) return { baseUrl };
 

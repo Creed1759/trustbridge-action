@@ -11,7 +11,7 @@
     "typecheck:tests": "tsc --project tsconfig.test.json --noEmit",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "test:mock": "jest --testPathPattern horizon-mock-smoke --forceExit",
+    "test:mock": "jest --testPathPatterns horizon-mock-smoke --forceExit",
     "lint": "eslint src __tests__ --ext .ts",
     "prepare": "npm run build",
     "mock:start": "docker compose -f mock/horizon/docker-compose.yml up -d --wait",
@@ -33,9 +33,10 @@
   "author": "Stellar-TrustBridge",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^3.0.1",
+    "@actions/core": "^2.0.3",
     "@actions/github": "^6.0.1",
-    "node-fetch": "^3.3.2"
+    "https-proxy-agent": "^5.0.1",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

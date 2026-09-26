@@ -534,7 +534,7 @@ describe('Horizon debug log redaction', () => {
       }
     });
 
-    it('throws HorizonRateLimitError if total wait exceeds max total wait', async () => {
+    it('reports wait-budget context if total wait exceeds max total wait', async () => {
       const errBody = { type: 'rate_limit', title: 'Too Many Requests', status: 429, detail: `Rate limited` };
       let callCount = 0;
       const mock = makeMockFetch(async () => {
@@ -553,7 +553,7 @@ describe('Horizon debug log redaction', () => {
           retryMaxDelayMs: 60000, // per-retry cap is generous enough
           retryMaxTotalWaitMs: 70000, // but total wait cap will be exceeded on 2nd retry (40k + 40k = 80k > 70k)
           fetchFn: mock,
-        })).rejects.toThrow(HorizonRateLimitError);
+        })).rejects.toThrow(/retry wait budget exhausted/i);
         // It should have made 2 calls (first attempt + 1 retry, before failing before 2nd retry)
         expect(mock).toHaveBeenCalledTimes(2);
       } finally {

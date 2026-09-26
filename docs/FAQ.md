@@ -118,6 +118,15 @@ with:
   horizon_url_fallback: https://horizon-testnet.stellar.org  # replace with your own mirror
 ```
 
+### 429 responses and retry wait budgets
+
+TrustBridge honors Horizon's `Retry-After` response and caps both an individual
+wait and the total retry wait. When that total budget is exhausted, the action
+stops retrying and reports a **Horizon retry wait budget exhausted** failure.
+This is different from an unfunded account: no reliable account state was
+received. Retry later, or adjust the retry delay and total-wait inputs for a
+known-slow Horizon mirror.
+
 **Helpful links:**
 - [Stellar Status page](https://status.stellar.org/)
 - [TrustBridge RPC fallback docs](https://github.com/Stellar-TrustBridge/trustbridge-action/blob/main/docs/USAGE.md#horizon-rpc-fallback-url)

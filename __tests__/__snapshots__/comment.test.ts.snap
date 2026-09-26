@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`formatCommentBody golden snapshots matches golden snapshot for missing trustline failure path 1`] = `
 "<!-- trustbridge-action:sticky-comment:schema-v1.1.0 -->

@@ -767,6 +767,16 @@ outputs:
     description: 'Number of accounts this account is sponsoring (numeric string)'
   num_sponsored:
     description: 'Number of accounts sponsoring this account (numeric string)'
+  network_passphrase_mismatch:
+    description: 'Whether the configured and Horizon network passphrases differ'
+  expected_network_passphrase:
+    description: 'Configured or inferred network passphrase'
+  actual_network_passphrase:
+    description: 'Network passphrase reported by Horizon'
+  assignee_results_json:
+    description: 'JSON result for the validated assignee, when an assignee is available'
+  matrix_ready_map:
+    description: 'JSON map of assignee login to validation readiness'
 
 runs:
   using: "node20"

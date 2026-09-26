@@ -25,6 +25,8 @@ export interface ActionOutputExtras {
   assetIssuer?: string;
   timings?: ActionTimings;
   validatedAt?: string;
+  assigneeLogin?: string;
+  stellarAddress?: string;
   /**
    * #319 — Conflict report to embed in outputs. When present,
    * `conflict_report` and `has_conflicts` outputs are set accordingly.
@@ -195,6 +197,11 @@ export interface ActionOutputs {
    * Allows downstream steps to gate on `steps.trustbridge.outputs.has_conflicts == 'true'`.
    */
   has_conflicts: string;
+  network_passphrase_mismatch: string;
+  expected_network_passphrase: string;
+  actual_network_passphrase: string;
+  assignee_results_json: string;
+  matrix_ready_map: string;
 }
 
 export function toActionOutputs(
@@ -273,6 +280,11 @@ export function toActionOutputs(
       ? JSON.stringify(extras.conflictReport)
       : '',
     has_conflicts: String(extras.conflictReport?.hasConflicts ?? false),
+    network_passphrase_mismatch: String(Boolean(mismatch)),
+    expected_network_passphrase: mismatch?.expectedPassphrase ?? '',
+    actual_network_passphrase: mismatch?.actualPassphrase ?? '',
+    assignee_results_json: assigneeResultsJson,
+    matrix_ready_map: matrixReadyMap,
   };
 }
 

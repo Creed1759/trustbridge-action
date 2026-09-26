@@ -239,10 +239,11 @@ export async function resolveFederationAddress(
     });
 
     if (!tomlResult.ok) {
-      logger.warn(`Failed to fetch stellar.toml from ${domain}: ${tomlResult.error}`, {
+      const error = 'error' in tomlResult ? tomlResult.error : 'unknown error';
+      logger.warn(`Failed to fetch stellar.toml from ${domain}: ${error}`, {
         component: 'federation',
         domain,
-        error: tomlResult.error,
+        error,
       });
       return null;
     }
@@ -272,10 +273,11 @@ export async function resolveFederationAddress(
     });
 
     if (!federationResult.ok) {
-      logger.warn(`Federation server request failed: ${federationResult.error}`, {
+      const error = 'error' in federationResult ? federationResult.error : 'unknown error';
+      logger.warn(`Federation server request failed: ${error}`, {
         component: 'federation',
         domain,
-        error: federationResult.error,
+        error,
       });
       return null;
     }

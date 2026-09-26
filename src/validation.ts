@@ -417,7 +417,7 @@ export const SSRF_BLOCKED_PATTERNS: RegExp[] = [
 export function validateSsrfSafeUrl(
   url: string,
   fieldName: string,
-  options: { allowHttp?: boolean } = {},
+  options: { allowHttp?: boolean; allowLocalhost?: boolean } = {},
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -450,6 +450,9 @@ export function validateSsrfSafeUrl(
 
   // SSRF pattern check — run against credential-stripped URL
   for (const pattern of SSRF_BLOCKED_PATTERNS) {
+    if (options.allowLocalhost && /^https?:\/\/localhost(?::|\/|$)/i.test(strippedUrl) && pattern.source.includes('localhost')) {
+      continue;
+    }
     if (pattern.test(strippedUrl)) {
       errors.push(
         `${fieldName} targets a blocked address (private IP, loopback, or metadata endpoint): "${trimmed}"`,
@@ -477,7 +480,7 @@ export function validateSsrfSafeUrl(
 export function validateHorizonUrl(
   url: string,
   fieldName = 'horizon_url',
-  options: { allowHttp?: boolean; allowlist?: string[] } = {},
+  options: { allowHttp?: boolean; allowlist?: string[]; allowLocalhost?: boolean } = {},
 ): ValidationResult {
   // Allow http by default (testnet / private mirrors); pass allowHttp:false for https-only.
   const allowHttp = options.allowHttp !== false;
@@ -494,7 +497,10 @@ export function validateHorizonUrl(
     errors.push(`${fieldName} must not contain path traversal segments ("..") or invalid path dots`);
   }
 
-  const ssrf = validateSsrfSafeUrl(url, fieldName, { allowHttp });
+  const ssrf = validateSsrfSafeUrl(url, fieldName, {
+    allowHttp,
+    allowLocalhost: options.allowLocalhost,
+  });
   const urlCheck = validateUrl(url, fieldName, {
     protocols: allowHttp ? ['http', 'https'] : ['https'],
   });

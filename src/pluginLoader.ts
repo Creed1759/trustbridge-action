@@ -106,7 +106,7 @@ export async function loadPlugin(
   const pathValidation = validatePluginPath(workspaceRoot, pluginPath);
   if (!pathValidation.valid) {
     throw new PluginLoadError(
-      `Plugin path validation failed: ${pathValidation.reason}`,
+      `Plugin path validation failed: ${'reason' in pathValidation ? pathValidation.reason : 'invalid path'}`,
       pluginPath,
       'path_traversal',
     );

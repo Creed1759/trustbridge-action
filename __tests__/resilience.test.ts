@@ -202,6 +202,20 @@ describe('retryWithBackoff', () => {
     expect(fn).toHaveBeenCalledTimes(1);
     expect(shouldRetry).toHaveBeenCalledTimes(1);
   });
+
+  it('identifies max-total-wait exhaustion separately from a rate-limit error', async () => {
+    const fn = jest.fn().mockRejectedValue(new Error('transient failure'));
+    const promise = retryWithBackoff(fn, {
+      ...DEFAULT_RETRY_POLICY,
+      maxRetries: 2,
+      initialDelayMs: 10,
+      maxDelayMs: 10,
+      maxTotalWaitMs: 5,
+    });
+
+    await expect(promise).rejects.toThrow(/Retry wait budget exhausted/);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ---------------------------------------------------------------------------

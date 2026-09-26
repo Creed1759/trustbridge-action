@@ -2,13 +2,13 @@ import { SimpleCache } from './cache';
 import { RateBudgetTracker, CircuitBreaker } from './resilience';
 export interface HorizonBalanceNative {
     balance: string;
-    asset_type: 'native';
+    asset_type: "native";
     buying_liabilities: string;
     selling_liabilities: string;
 }
 export interface HorizonBalanceCredit {
     balance: string;
-    asset_type: 'credit_alphanum4' | 'credit_alphanum12';
+    asset_type: "credit_alphanum4" | "credit_alphanum12";
     asset_code: string;
     asset_issuer: string;
     buying_liabilities: string;
@@ -29,7 +29,7 @@ export interface HorizonBalanceCredit {
 }
 export interface HorizonBalanceLiquidityPoolShares {
     balance: string;
-    asset_type: 'liquidity_pool_shares';
+    asset_type: "liquidity_pool_shares";
     liquidity_pool_id: string;
     buying_liabilities: string;
     selling_liabilities: string;
@@ -38,7 +38,7 @@ export interface HorizonBalanceLiquidityPoolShares {
     is_authorized_to_maintain_liabilities: boolean;
 }
 export interface HorizonBalanceClaimable {
-    asset_type: 'claimable_balance_id';
+    asset_type: "claimable_balance_id";
     balance: string;
     claimable_balance_id: string;
 }
@@ -100,7 +100,7 @@ export declare class HorizonPinMismatchError extends HorizonError {
     readonly actualFingerprint: string;
     constructor(message: string, expectedFingerprint: string, actualFingerprint: string);
 }
-export type FetchLike = (url: string | import('node-fetch').Request, init?: import('node-fetch').RequestInit) => Promise<import('node-fetch').Response>;
+export type FetchLike = (url: string | import("node-fetch").Request, init?: import("node-fetch").RequestInit) => Promise<import("node-fetch").Response>;
 export interface FetchAccountOptions {
     timeoutMs?: number;
     maxRetries?: number;
@@ -201,6 +201,43 @@ export interface WaitForFundedAccountOptions {
  * outages don't turn into a silent multi-minute hang.
  */
 export declare function waitForFundedAccount(horizonUrl: string, stellarAddress: string, options?: WaitForFundedAccountOptions, fetchAccountFn?: typeof fetchAccount): Promise<HorizonAccount>;
+export interface FriendbotOptions {
+    /** Friendbot URL. Must be HTTPS and on the allowlist. */
+    friendbotUrl: string;
+    /** Request timeout in milliseconds. */
+    timeoutMs?: number;
+    /** Override fetch function (for testing). */
+    fetchFn?: (url: string, init?: RequestInit) => Promise<Response>;
+}
+/**
+ * Check if a friendbot URL is on the allowlist and safe to use.
+ * Prevents SSRF attacks by only allowing known testnet friendbot endpoints.
+ */
+export declare function isFriendbotAllowed(friendbotUrl: string): boolean;
+/**
+ * Detect whether a Horizon URL points to testnet or mainnet.
+ * Used to enforce friendbot safety rules (never call friendbot on mainnet).
+ */
+export declare function isTestnetHorizon(horizonUrl: string): boolean;
+export interface FriendbotResult {
+    success: boolean;
+    message: string;
+    transactionHash?: string;
+}
+/**
+ * Call Stellar Friendbot to fund a testnet account.
+ *
+ * Safety rules:
+ * - Only works with allowlisted friendbot URLs (SSRF protection)
+ * - Only callable when Horizon URL indicates testnet
+ * - Fails fast with clear error on mainnet or unknown networks
+ *
+ * @param stellarAddress The G-address to fund
+ * @param options Friendbot configuration
+ * @param horizonUrl The Horizon URL (used for network safety check)
+ * @returns FriendbotResult with success status and transaction details
+ */
+export declare function callFriendbot(stellarAddress: string, options: FriendbotOptions, horizonUrl: string): Promise<FriendbotResult>;
 /**
  * Narrows to a credit trustline balance (`credit_alphanum4` /
  * `credit_alphanum12`) only. Checks the asset_type allowlist explicitly
@@ -269,7 +306,7 @@ export declare function fetchClaimableBalanceCount(horizonUrl: string, stellarAd
  * - `wallet: reserve-low`      — account funded + trustline present but XLM reserve not met.
  * - `wallet: horizon-error`    — Horizon returned a non-404 error; state unknown.
  */
-export type WalletLabel = 'wallet: funded' | 'wallet: unfunded' | 'wallet: trustline-missing' | 'wallet: reserve-low' | 'wallet: horizon-error';
+export type WalletLabel = "wallet: funded" | "wallet: unfunded" | "wallet: trustline-missing" | "wallet: reserve-low" | "wallet: horizon-error";
 /**
  * All wallet label strings — useful for bulk removal before re-applying
  * the current state so stale labels never linger on an issue.
@@ -351,6 +388,43 @@ export declare function applyWalletLabels(octokit: {
     };
 }, owner: string, repo: string, issueNumber: number, input: WalletLabelInput, options?: ApplyWalletLabelsOptions): Promise<{
     applied: WalletLabel;
+    removed: string[];
+    error?: string;
+}>;
+export interface ReadyLabelInput {
+    ready: boolean;
+    passLabel?: string;
+    failLabel?: string;
+}
+export declare function applyReadyLabels(octokit: {
+    rest: {
+        issues: {
+            addLabels: (params: {
+                owner: string;
+                repo: string;
+                issue_number: number;
+                labels: string[];
+            }) => Promise<unknown>;
+            removeLabel: (params: {
+                owner: string;
+                repo: string;
+                issue_number: number;
+                name: string;
+            }) => Promise<unknown>;
+            listLabelsOnIssue: (params: {
+                owner: string;
+                repo: string;
+                issue_number: number;
+                per_page: number;
+            }) => Promise<{
+                data: Array<{
+                    name: string;
+                }>;
+            }>;
+        };
+    };
+}, owner: string, repo: string, issueNumber: number, input: ReadyLabelInput): Promise<{
+    applied?: string;
     removed: string[];
     error?: string;
 }>;

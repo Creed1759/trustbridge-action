@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`formatCommentBody snapshot — workflow_dispatch context (Wave #29) funded account comment matches snapshot 1`] = `
 "<!-- trustbridge-action:sticky-comment:schema-v1.1.0 -->

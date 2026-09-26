@@ -270,7 +270,11 @@ export async function retryWithBackoff<T>(
       const delayWithJitter = addJitter(delayMs);
       
       if (delayWithJitter > policy.maxDelayMs || totalWaitMs + delayWithJitter > policy.maxTotalWaitMs) {
-        throw new Error(`Rate limit cap exceeded (attempted wait ${delayWithJitter}ms, max delay ${policy.maxDelayMs}ms, total wait ${totalWaitMs}ms, max total ${policy.maxTotalWaitMs}ms)`);
+        throw new Error(
+          `Retry wait budget exhausted (attempted wait ${delayWithJitter}ms, ` +
+          `max delay ${policy.maxDelayMs}ms, total wait ${totalWaitMs}ms, ` +
+          `max total ${policy.maxTotalWaitMs}ms).`,
+        );
       }
       
       totalWaitMs += delayWithJitter;

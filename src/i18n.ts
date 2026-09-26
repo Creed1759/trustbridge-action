@@ -521,6 +521,11 @@ const JA: CommentStrings = {
   remediationEstimatedSetupCost: (cost: string) => `初期費用の見積もり: 約**${cost} XLM**。`,
   remediationHorizonError:
     'Horizonに接続できませんでした。後でもう一度お試しいただくか、`horizon_url` の入力とネットワーク接続を確認してください。',
+  networkMismatchDetected: 'ネットワークの不一致が検出されました。',
+  networkMismatchConfiguredNetwork: '設定されたネットワーク:',
+  networkMismatchActiveNetwork: 'アクティブなネットワーク:',
+  networkMismatchFix: '設定されたネットワークでこのアカウントに資金を供給してください。',
+  networkMismatchUpdateUrl: '`horizon_url` を更新してください。',
 };
 
 /**
@@ -619,6 +624,11 @@ const FR: CommentStrings = {
   remediationEstimatedSetupCost: (cost: string) => `Coût de configuration estimé : ~**${cost} XLM**.`,
   remediationHorizonError:
     'Horizon n\'a pas pu être atteint. Réessayez plus tard ou vérifiez votre entrée `horizon_url` et la connectivité réseau.',
+  networkMismatchDetected: 'Incompatibilité de réseau détectée.',
+  networkMismatchConfiguredNetwork: 'Réseau configuré :',
+  networkMismatchActiveNetwork: 'Réseau actif :',
+  networkMismatchFix: 'Financez ce compte sur le réseau configuré.',
+  networkMismatchUpdateUrl: 'Mettez à jour `horizon_url`.',
 };
 
 /**
@@ -717,6 +727,11 @@ const DE: CommentStrings = {
   remediationEstimatedSetupCost: (cost: string) => `Geschätzte Einrichtungskosten: ~**${cost} XLM**.`,
   remediationHorizonError:
     'Horizon konnte nicht erreicht werden. Versuchen Sie es später erneut oder überprüfen Sie Ihre `horizon_url`-Eingabe und die Netzwerkkonnektivität.',
+  networkMismatchDetected: 'Netzwerkabweichung erkannt.',
+  networkMismatchConfiguredNetwork: 'Konfiguriertes Netzwerk:',
+  networkMismatchActiveNetwork: 'Aktives Netzwerk:',
+  networkMismatchFix: 'Finanzieren Sie dieses Konto im konfigurierten Netzwerk.',
+  networkMismatchUpdateUrl: 'Aktualisieren Sie `horizon_url`.',
 };
 
 const LOCALES: Record<Locale, CommentStrings> = {

@@ -7,6 +7,7 @@ import { globalMetrics } from './metrics';
 import { RateBudgetTracker, CircuitBreaker, CircuitOpenError } from './resilience';
 import { validateHorizonUrl } from './validation';
 import { traceHorizonFetch } from './tracing';
+import { createProxiedFetch } from './proxy';
 
 export interface HorizonBalanceNative {
   balance: string;
@@ -251,6 +252,7 @@ export function normalizeHorizonUrl(baseUrl: string): string {
   // credential + traversal guards via validateHorizonUrl.
   const validation = validateHorizonUrl(trimmed, "horizon_url", {
     allowHttp: true,
+    allowLocalhost: process.env.HORIZON_MOCK_URL === trimmed,
   });
   if (!validation.valid) {
     throw new HorizonError(
@@ -676,7 +678,7 @@ async function fetchAccountOnce(
 
           if (totalWaitMs + retryAfter > retryMaxTotalWaitMs) {
             throw new HorizonRateLimitError(
-              `Horizon rate limit exceeded (total wait ${totalWaitMs + retryAfter}ms exceeds cap of ${retryMaxTotalWaitMs}ms). Please try again later.`,
+              `Horizon retry wait budget exhausted (total wait ${totalWaitMs + retryAfter}ms exceeds cap of ${retryMaxTotalWaitMs}ms). Please try again later.`,
               retryAfter,
             );
           }
@@ -919,8 +921,6 @@ export async function fetchAccount(
   options: FetchAccountOptions = {},
 ): Promise<HorizonAccount> {
   return traceHorizonFetch(horizonUrl, stellarAddress, async () => {
-    const fetch: FetchLike =
-      options.fetchFn ?? (await import('node-fetch')).default;
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     const retryBaseDelayMs = options.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS;
@@ -947,6 +947,9 @@ export async function fetchAccount(
     if (!normalizedHorizonUrl) {
       throw new HorizonError('horizon_url is required.', 0, false);
     }
+
+    const fetch: FetchLike =
+      options.fetchFn ?? (await import('node-fetch')).default;
 
     // Bail out immediately if the job was already cancelled before we start.
     if (signal?.aborted) {
@@ -1206,8 +1209,35 @@ export async function waitForFundedAccount(
 
     attempt += 1;
 
+    try {
+      return await fetchAccountFn(horizonUrl, stellarAddress, {
+        timeoutMs: options.requestTimeoutMs,
+        maxRetries: options.maxRetries,
+        signal,
+      });
+    } catch (error) {
+      if (!(error instanceof HorizonError) || error.statusCode !== 404) {
+        throw error;
+      }
+
+      const elapsedMs = Date.now() - start;
+      if (elapsedMs >= timeoutMs) {
+        throw new HorizonError(
+          `Account ${stellarAddress} was still not funded after waiting ${timeoutMs}ms (wait_until_funded timeout).`,
+          404,
+          false,
+        );
+      }
+
+      options.onPoll?.(attempt, elapsedMs);
+      await new Promise((r) => setTimeout(r, Math.min(pollIntervalMs, timeoutMs - elapsedMs)));
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Friendbot integration for testnet (Issue #4)
+
 // ---------------------------------------------------------------------------
 
 export interface FriendbotOptions {
@@ -1375,62 +1405,6 @@ export async function callFriendbot(
       success: false,
       message: `Friendbot request failed: ${message}`,
     };
-  }
-}
-
-/**
- * Poll Horizon for an account until it becomes funded or the timeout budget
- * is exhausted. Only Horizon 404 ("not found") responses are treated as
- * "not yet funded" and trigger another poll — any other error (rate limit
- * exhaustion, Horizon outage, network failure) is rethrown immediately so
- * outages don't turn into a silent multi-minute hang.
- */
-export async function waitForFundedAccount(
-  horizonUrl: string,
-  stellarAddress: string,
-  options: WaitForFundedAccountOptions = {},
-  fetchAccountFn: typeof fetchAccount = fetchAccount,
-): Promise<HorizonAccount> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS;
-  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-  const signal = options.signal;
-  const start = Date.now();
-  let attempt = 0;
-
-  for (;;) {
-    // Bail out cleanly if the job was cancelled — no misleading error message.
-    if (signal?.aborted) {
-      throw new HorizonError('Polling aborted (job cancelled).', 0, false);
-    }
-
-    attempt += 1;
-
-    try {
-      return await fetchAccountFn(horizonUrl, stellarAddress, {
-        timeoutMs: options.requestTimeoutMs,
-        maxRetries: options.maxRetries,
-        signal,
-      });
-    } catch (error) {
-      if (!(error instanceof HorizonError) || error.statusCode !== 404) {
-        throw error;
-      }
-
-      const elapsedMs = Date.now() - start;
-      if (elapsedMs >= timeoutMs) {
-        throw new HorizonError(
-          `Account ${stellarAddress} was still not funded after waiting ${timeoutMs}ms (wait_until_funded timeout).`,
-          404,
-          false,
-        );
-      }
-
-      options.onPoll?.(attempt, elapsedMs);
-
-      // Sleep for the poll interval, but abort immediately if the job is cancelled.
-      const sleepMs = Math.min(pollIntervalMs, timeoutMs - elapsedMs);
-      await cancellableSleep(sleepMs, signal);
-    }
   }
 }
 

@@ -46,6 +46,9 @@ The stubs in `mock/horizon/mappings/` cover the four most important scenarios:
 | `GCCC...CCCC` | `account-low-balance.json` | Funded, USDC trustline, but only 0.5 XLM |
 | `GDDD...DDDD` | `account-no-trustline.json` | Funded, 10 XLM, but no USDC trustline |
 | `GEEE...EEEE` | `rate-limited.json` | 429 Too Many Requests with `Retry-After: 1` |
+| `GFFF...FFFF` | `error-503.json` | 503 Service Unavailable |
+| `GGGG...GGGG` | `error-502.json` | 502 Bad Gateway |
+| `GHHH...HHHH` | `failover-scenario*.json` | 503 then 200 on retry (Failover) |
 | _(root)_ `/` | `health.json` | Horizon root metadata probe |
 
 Any address not matched by a stub returns WireMock's built-in 404 for

@@ -20,6 +20,7 @@ export interface ContractConfig {
     contractId: string;
     /** Request timeout in milliseconds. */
     timeoutMs?: number;
+    pageLimit?: number;
 }
 export interface ContractLookupResult {
     /** Resolved Stellar G-address, or null if not registered. */
@@ -27,6 +28,8 @@ export interface ContractLookupResult {
     /** Whether the result came from the on-chain registry. */
     fromRegistry: boolean;
 }
+/** Resolve the requested roster identity through the same registry endpoint. */
+export declare function fetchFullContractRoster(githubUsername: string, config: ContractConfig): Promise<Record<string, string>>;
 /**
  * Looks up a GitHub username in the trustbridge-contract on-chain registry.
  *

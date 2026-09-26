@@ -1,5 +1,5 @@
-import * as github from '@actions/github';
-import { CheckConfig, ValidationResult } from './checks';
+import * as github from "@actions/github";
+import { CheckConfig, ValidationResult } from "./checks";
 import { MetricsCollector } from './metrics';
 import { CommentReaction } from './snooze';
 import { DiagnosticsConfig } from './diagnostics';
@@ -76,6 +76,22 @@ export interface CommentConfig extends CheckConfig {
      */
     sep0010ChallengeXdr?: string;
     sep0010DashboardUrl?: string;
+    /**
+     * Optional workspace-relative (or absolute) path to a Markdown partial
+     * file that is appended to the comment just before the footer (#312).
+     *
+     * The partial supports `{{variable}}` interpolation for safe substitution
+     * of account, asset, issuer, network, horizon, status, and i18n strings
+     * (`{{locale:KEY}}`). All substituted values are escaped through
+     * `escapeMarkdownInline` to prevent Markdown injection. Dangerous patterns
+     * (prototype-chain keys, <script>, javascript:, inline event handlers) are
+     * rejected before interpolation. The file must reside inside the workspace
+     * root (path traversal is blocked) and must not exceed 8 KB.
+     *
+     * Leave unset or empty to disable the feature entirely.
+     */
+    customCommentTemplatePath?: string;
+    existingCommentBody?: string;
 }
 export declare const TRUSTBRIDGE_FOOTER = "_Posted by [trustbridge-action](https://github.com/Stellar-TrustBridge/trustbridge-action)_";
 /**
@@ -124,7 +140,7 @@ export declare const COMMENT_SIZE_LIMIT_BYTES = 65536;
  */
 export declare const COMMENT_TRUNCATION_NOTICE_BYTES = 512;
 /**
- * Build a truncated comment body that fits within `COMMENT_SIZE_LIMIT_BYTES`.
+ * Build a truncated comment body that fits within the given size limit.
  *
  * The full body is cut at a safe byte offset, a truncation notice is
  * appended, and the TrustBridge footer is preserved so the sticky-comment
@@ -133,11 +149,13 @@ export declare const COMMENT_TRUNCATION_NOTICE_BYTES = 512;
  *
  * @param fullBody  The full comment body produced by `formatCommentBody`.
  * @param reportPath  Workspace-relative path where the full report was written.
- * @returns A comment body that fits within the GitHub size limit.
+ * @param sizeLimit  Maximum comment body size in bytes (defaults to `COMMENT_SIZE_LIMIT_BYTES`).
+ *                   Pass a smaller value for GHES instances with custom limits.
+ * @returns A comment body that fits within the given size limit.
  *
  * @internal Exported for testing.
  */
-export declare function buildTruncatedCommentBody(fullBody: string, reportPath: string): string;
+export declare function buildTruncatedCommentBody(fullBody: string, reportPath: string, sizeLimit?: number): string;
 /**
  * Write the full comment body to a workspace file so it can be uploaded as
  * a GitHub Actions artifact by a subsequent `actions/upload-artifact` step.
@@ -265,6 +283,20 @@ export declare function resolveIssueOrPullRequestNumber(payload: unknown): numbe
  * marker drift.
  */
 export declare function isTrustBridgeComment(body: string | undefined | null): boolean;
+/**
+ * Detect a revalidation slash command on an issue comment.
+ *
+ * Only exact `/trustbridge` prefixes are treated as commands so that unrelated
+ * comments and other slash commands are ignored. The match is intentionally
+ * narrow and only triggers when the command begins the comment body (allowing
+ * leading whitespace, then the exact token followed by whitespace or end-of-text).
+ */
+export declare function isTrustBridgeSlashCommand(body: string | undefined | null): boolean;
+/**
+ * Returns true when the issue comment came from a bot account and therefore
+ * should never trigger a revalidation loop or a follow-up command.
+ */
+export declare function isBotCommentAuthor(payload: unknown): boolean;
 /**
  * Maximum number of comment pages (100 comments per page) to search for sticky
  * comments on high-traffic issues or discussions before capping.

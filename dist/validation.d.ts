@@ -126,6 +126,7 @@ export declare const SSRF_BLOCKED_PATTERNS: RegExp[];
  */
 export declare function validateSsrfSafeUrl(url: string, fieldName: string, options?: {
     allowHttp?: boolean;
+    allowLocalhost?: boolean;
 }): ValidationResult;
 /**
  * Convenience wrapper: validates a Horizon (or RPC fallback) URL against
@@ -143,6 +144,7 @@ export declare function validateSsrfSafeUrl(url: string, fieldName: string, opti
 export declare function validateHorizonUrl(url: string, fieldName?: string, options?: {
     allowHttp?: boolean;
     allowlist?: string[];
+    allowLocalhost?: boolean;
 }): ValidationResult;
 /**
  * Sanitizes a single string field read from a consumer trustbridge.yml,

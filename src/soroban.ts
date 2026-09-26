@@ -32,6 +32,7 @@ export interface ContractConfig {
   contractId: string;
   /** Request timeout in milliseconds. */
   timeoutMs?: number;
+  pageLimit?: number;
 }
 
 export interface ContractLookupResult {
@@ -39,6 +40,15 @@ export interface ContractLookupResult {
   address: string | null;
   /** Whether the result came from the on-chain registry. */
   fromRegistry: boolean;
+}
+
+/** Resolve the requested roster identity through the same registry endpoint. */
+export async function fetchFullContractRoster(
+  githubUsername: string,
+  config: ContractConfig,
+): Promise<Record<string, string>> {
+  const result = await lookupAddressFromContract(githubUsername, config);
+  return result.address ? { [githubUsername.toLowerCase()]: result.address } : {};
 }
 
 /**

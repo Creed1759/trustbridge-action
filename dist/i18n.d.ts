@@ -72,6 +72,11 @@ export interface CommentStrings {
     remediationAccountNotFound(assetCode: string): string;
     remediationEstimatedSetupCost(cost: string): string;
     remediationHorizonError: string;
+    networkMismatchDetected: string;
+    networkMismatchConfiguredNetwork: string;
+    networkMismatchActiveNetwork: string;
+    networkMismatchFix: string;
+    networkMismatchUpdateUrl: string;
 }
 /**
  * Get comment strings for a given locale, with automatic fallback to English

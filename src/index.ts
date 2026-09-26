@@ -16,7 +16,7 @@ import {
   ValidationResult,
   rateBudgetExhaustedResult,
 } from './checks';
-import { fetchAccount, HorizonError, waitForFundedAccount, applyWalletLabels } from './horizon';
+import { fetchAccount, HorizonError, waitForFundedAccount, applyWalletLabels, applyReadyLabels } from './horizon';
 import type { HorizonAccount, HorizonBalance } from './horizon';
 import { checkLedgerFreshness } from './freshness';
 import {
@@ -61,7 +61,10 @@ import { validateContractAddress, clearSpans, getSpans } from './validation';
 import { parseLocaleInput } from './i18n';
 import { sendWebhookNotification } from './webhook';
 import { runIssuesPreflight } from './preflight';
-import { lookupAddressFromContract, ContractLookupError, contractExistsOnChain } from './soroban';
+import { loadCodeowners, isMaintainerActor } from './codeowners';
+import { fetchDashboardRoster } from './roster';
+import { getOctokitProxyOptions } from './proxy';
+import { lookupAddressFromContract, fetchFullContractRoster, ContractLookupError, contractExistsOnChain } from './soroban';
 import { registerCorePlugins } from './corePlugins';
 import { defaultRegistry } from './plugin';
 import { loadPluginsFromAllowlist } from './pluginLoader';
@@ -1644,6 +1647,29 @@ async function run(): Promise<void> {
     customCommentTemplatePath: customCommentTemplatePath || undefined,
   });
 
+  const buildCommentBody = (existingBody?: string) => {
+    const rawBody = formatCommentBody(result, {
+      ...checkConfig,
+      stellarAddress: effectiveResolvedAddress,
+      horizonUrl,
+      failOnMissing,
+      stickyComment,
+      waitUntilFunded,
+      waitUntilFundedTimeoutMs,
+      waitUntilFundedIntervalMs,
+      onboardingChecklist,
+      sep0007DeepLinks,
+      sep0007OriginDomain,
+      sep0010ChallengeXdr,
+      sep0010DashboardUrl,
+      locale,
+      debugMode,
+      docsBaseUrl: core.getInput('docs_base_url') || undefined,
+      delta,
+      diagnosticsConfig,
+      customCommentTemplatePath: customCommentTemplatePath || undefined,
+    });
+
     const bodyBytes = Buffer.byteLength(rawBody, 'utf8');
     if (bodyBytes > COMMENT_SIZE_LIMIT_BYTES) {
       return buildTruncatedCommentBody(rawBody, reportOutputPath);
@@ -1876,6 +1902,7 @@ async function run(): Promise<void> {
   }
   });
 }
+
 
 // Skip auto-run under Jest so performance / integration tests can import `run`.
 export { run };
